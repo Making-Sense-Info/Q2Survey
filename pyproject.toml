@@ -18,7 +18,7 @@ dev-dependencies = []
 [tool.rye.scripts]
 up = "marimo edit survey.py"
 md = "marimo export md survey.py -o survey.md"
-html = "marimo export html survey.py -o survey.html"
+html = "marimo export html survey.py -o ./html/survey.html"
 
 [tool.hatch.metadata]
 allow-direct-references = true
