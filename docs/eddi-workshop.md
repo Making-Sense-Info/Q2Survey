@@ -8,17 +8,30 @@ From [EDDI program description](https://events.geant.org/event/1637/timetable/#5
 
 ## Ice breaker
 
+> 10~20 minutes
+
 - Let's divide into groups of 4/5 people (3 if we are less than 10)
 - Answer this question (as a group): "What word describe the most ??????"
 - After 5/10 minutes someone from the group will present the word and give a small explanation
 
 ## Main event
 
+> ~150 minutes
+
 (World café)
 
 - (all) Form groups
 - (in groups) Identify the topics
 - (all) Present the topics
-- (all) Form other groups
+  - 🔵 Can be skipped if we want to work on the already overarching topics, see above
+- (all) Form topic groups
+- (in groups) Work on topics
+- (all) Keep an "ambassador" for each topic, the other person change topics
 - (in groups) Work on topics
 - (all) Present results
+
+## Any other business
+
+> ~20 minutes
+
+_Anything DDI and questionnaire related_
