@@ -187,7 +187,7 @@ def __(df, pl):
 
 @app.cell
 def __(mo):
-    mo.md("""## DDI use & knowledge """)
+    mo.md("""## DDI use & knowledge""")
     return
 
 
@@ -446,7 +446,7 @@ def __(alt, df):
 
 @app.cell
 def __(mo):
-    mo.md("""### What tools are you using to document questions and questionnaires in DDI? """)
+    mo.md("""### What tools are you using to document questions and questionnaires in DDI?""")
     return
 
 
@@ -534,7 +534,6 @@ def __(alt, df, pl):
     sat_pie = sat_base.mark_arc(outerRadius=120)
     sat_text = sat_base.mark_text(radius=140, size=20).encode(text="len:N")
     sat_pie + sat_text
-
     return sat, sat_base, sat_pie, sat_text
 
 
@@ -682,6 +681,12 @@ def __(df, mark, pl):
     ).agg(
         pl.col("value").sum()
     ).sort("value", descending=True)
+    return
+
+
+@app.cell
+def __(mo):
+    mo.md(r""" ### For you, what materials would meet your needs in terms of documenting questions and questionnaires?""")
     return
 
 
