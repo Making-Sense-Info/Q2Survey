@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.9.16"
-app = marimo.App(width="medium", layout_file="layouts/survey.slides.json")
+app = marimo.App(width="medium")
 
 
 @app.cell
@@ -15,17 +15,22 @@ def __():
 
 
 @app.cell
-def __(mo):
+def __(mo, pl):
     # Various constants
     TECHNICAL_COLUMNS = ["StartDate", "EndDate", "Status", "Progress", "Duration (in seconds)", "Finished", "RecordedDate", "ResponseId", "DistributionChannel", "UserLanguage", "GDPR"]
 
     # Helpers
     def list_to_md(list_of_things, title=None):
-        text = f"## {title} \n" if title is not None else ""
+        text = f"### {title} \n" if title is not None else ""
         for thing in list_of_things:
             text += f" - {thing} \n"
         return mo.md(text)
-    return TECHNICAL_COLUMNS, list_to_md
+
+    def mark(col_name, thing):
+        return pl.when(
+            pl.col(col_name).str.contains(thing)
+        ).then(1).otherwise(0).alias(thing)
+    return TECHNICAL_COLUMNS, list_to_md, mark
 
 
 @app.cell
@@ -43,7 +48,7 @@ def __(datetime, pl, random):
         pl.col("StartDate").str.to_datetime("%Y-%m-%d %H:%M:%S", strict=False) >= survey_start
     )
     random.seed(1234) # to get the same lines every run
-    df.sample(50)
+    #df.sample(50)
     return df, survey_start
 
 
@@ -83,9 +88,21 @@ def __(alt, answers, finished, pl):
 
 
 @app.cell
-def __(alt, df):
+def __(mo):
+    mo.md(
+        """
+        ## Where do people comes?
+
+        > Research Area
+        """
+    )
+    return
+
+
+@app.cell
+def __(alt, df, pl):
     _chart = (
-        alt.Chart(df)
+        alt.Chart(df.filter(pl.col("b1.q2").is_not_null()))
         .transform_aggregate(count="count()", groupby=["b1\.q2"])
         .transform_window(
             rank="rank()",
@@ -107,9 +124,9 @@ def __(alt, df):
 
 
 @app.cell
-def __(alt, df):
+def __(alt, df, pl):
     _chart = (
-        alt.Chart(df)
+        alt.Chart(df.filter(pl.col("b1.q2_8_TEXT").is_not_null()))
         .transform_aggregate(count="count()", groupby=["b1\.q2_8_TEXT"])
         .transform_window(
             rank="rank()",
@@ -131,15 +148,29 @@ def __(alt, df):
 
 
 @app.cell
-def __(df, mo, pl):
-    insts = df.select(
-        pl.col("b1.q3").alias("Institution")
-    ).filter(
-        pl.col("Institution").is_not_null()
-    )
+def __(mo):
+    mo.md("""> Organisation""")
+    return
 
-    mo.ui.table(insts)
-    return (insts,)
+
+@app.cell
+def __(df, mo, pl):
+    orgs = df.select(
+        pl.col("b1.q3").alias("Organisation")
+    ).filter(
+        pl.col("Organisation").is_not_null()
+    ).group_by(
+        pl.col("Organisation")
+    ).agg().sort(by="Organisation")
+
+    mo.ui.table(orgs)
+    return (orgs,)
+
+
+@app.cell
+def __(mo):
+    mo.md("""> Country""")
+    return
 
 
 @app.cell
@@ -155,6 +186,18 @@ def __(df, pl):
 
 
 @app.cell
+def __(mo):
+    mo.md("""## DDI use & knowledge """)
+    return
+
+
+@app.cell
+def __(mo):
+    mo.md("""### How would you rate your skill/knowledge on the following DDI products?""")
+    return
+
+
+@app.cell
 def __(alt, df, pl):
     df_ddi_kl = df.select(
         pl.col("b2.q1_1").alias("Codebook"),
@@ -163,8 +206,6 @@ def __(alt, df, pl):
     ).unpivot(["Codebook", "Lifecycle", "CDI"]).group_by(
         "variable", "value"
     ).len().sort("variable")
-
-    df_ddi_kl
 
     alt.Chart(df_ddi_kl, title="Skills and knowledge for DDI products").mark_bar().encode(
         x="value:O",
@@ -176,24 +217,39 @@ def __(alt, df, pl):
 
 
 @app.cell
+def __(mo):
+    mo.md(r"""### What DDI products are you currently using in your activities?""")
+    return
+
+
+@app.cell
 def __(df, mo, pl):
     mo.md("## Products used")
     df_pu = df.select(
         pl.col("b2.q2").alias("Products")
+    ).filter(
+        pl.col("Products").is_not_null()
     ).group_by(
         "Products"
-    ).len().sort("Products", descending=True)
+    ).len().sort("len", descending=True)
     mo.ui.table(df_pu)
     return (df_pu,)
 
 
 @app.cell
-def __(df, pl):
-    def mark(col_name, thing):
-        return pl.when(
-            pl.col(col_name).str.contains(thing)
-        ).then(1).otherwise(0).alias(thing)
+def __(mo):
+    mo.md(
+        r"""
+        ### If you are using DDI, when are you using DDI regarding the data lifecycle schema below?
 
+        ![Data lifecycle](https://ddialliance.org/sites/default/files/DDILifecycle.jpg)
+        """
+    )
+    return
+
+
+@app.cell
+def __(df, mark, pl):
     def markb2q3(thing):
         return mark("b2.q3", thing)
 
@@ -213,14 +269,26 @@ def __(df, pl):
         "variable"
     ).agg(
         pl.col("value").sum()
-    ).sort("value", descending=True)
-    return mark, markb2q3
+    ).select(
+        pl.col("variable").alias("Phase"),
+        pl.col("value").alias("Count")
+    ).sort("Count", descending=True)
+    return (markb2q3,)
 
 
 @app.cell
-def __(alt, df):
+def __(mo):
+    mo.md("""### Are you documenting...""")
+    return
+
+
+@app.cell
+def __(alt, df, pl):
     _chart = (
-        alt.Chart(df, title="Datasets...")
+        alt.Chart(
+            df.filter(pl.col("b2.q4_1").is_not_null()),
+            title="Datasets..."
+        )
         .mark_bar()
         .encode(
             y=alt.Y("b2\.q4_1", type="nominal"),
@@ -233,9 +301,9 @@ def __(alt, df):
 
 
 @app.cell
-def __(alt, df):
+def __(alt, df, pl):
     _chart = (
-        alt.Chart(df, title="Variables...")
+        alt.Chart(df.filter(pl.col("b2.q4_2").is_not_null()), title="Variables...")
         .mark_bar()
         .encode(
             y=alt.Y("b2\.q4_2", type="nominal"),
@@ -248,9 +316,9 @@ def __(alt, df):
 
 
 @app.cell
-def __(alt, df):
+def __(alt, df, pl):
     _chart = (
-        alt.Chart(df, title="Concepts...")
+        alt.Chart(df.filter(pl.col("b2.q4_3").is_not_null()), title="Concepts...")
         .mark_bar()
         .encode(
             y=alt.Y("b2\.q4_3", type="nominal"),
@@ -263,9 +331,9 @@ def __(alt, df):
 
 
 @app.cell
-def __(alt, df):
+def __(alt, df, pl):
     _chart = (
-        alt.Chart(df, title="Questions wording...")
+        alt.Chart(df.filter(pl.col("b2.q4_4").is_not_null()), title="Questions wording...")
         .mark_bar()
         .encode(
             y=alt.Y("b2\.q4_4", type="nominal"),
@@ -278,9 +346,9 @@ def __(alt, df):
 
 
 @app.cell
-def __(alt, df):
+def __(alt, df, pl):
     _chart = (
-        alt.Chart(df, title="Responses & code lists...")
+        alt.Chart(df.filter(pl.col("b2.q4_5").is_not_null()), title="Responses & code lists...")
         .mark_bar()
         .encode(
             y=alt.Y("b2\.q4_5", type="nominal"),
@@ -293,9 +361,15 @@ def __(alt, df):
 
 
 @app.cell
-def __(alt, df):
+def __(mo):
+    mo.md("""### Which DDI elements are you using to describe the questionnaires?""")
+    return
+
+
+@app.cell
+def __(alt, df, pl):
     _chart = (
-        alt.Chart(df)
+        alt.Chart(df.filter(pl.col("b2.q5").is_not_null()))
         .transform_aggregate(count="count()", groupby=["b2\.q5"])
         .transform_window(
             rank="rank()",
@@ -313,6 +387,12 @@ def __(alt, df):
         .properties(title="Questionnaire documentation with...", width="container")
     )
     _chart
+    return
+
+
+@app.cell
+def __(mo):
+    mo.md(r"""### What survey tools are you using?""")
     return
 
 
@@ -361,6 +441,12 @@ def __(alt, df):
         .properties(title="Other survey tools", width="container")
     )
     _chart
+    return
+
+
+@app.cell
+def __(mo):
+    mo.md("""### What tools are you using to document questions and questionnaires in DDI? """)
     return
 
 
@@ -419,9 +505,15 @@ def __(alt, df, pl):
 
 
 @app.cell
-def __(alt, df):
+def __(mo):
+    mo.md("""### Are you satisfied with your current usage of DDI?""")
+    return
+
+
+@app.cell
+def __(alt, df, pl):
     _chart = (
-        alt.Chart(df)
+        alt.Chart(df.filter(pl.col("b2.q10").is_not_null()))
         .mark_bar()
         .encode(
             y=alt.Y("b2\.q10", type="nominal"),
@@ -430,30 +522,37 @@ def __(alt, df):
         .properties(title="DDI satisfaction", width="container")
     )
     _chart
+
+
+    sat = df.filter(
+        pl.col("b2.q10").is_not_null()
+    ).select(
+        pl.col("b2.q10").alias("Satisfaction")
+    ).group_by("Satisfaction").len()
+
+    sat_base = alt.Chart(sat, title="Satisfaction").mark_arc().encode(theta="len:Q", color="Satisfaction")
+    sat_pie = sat_base.mark_arc(outerRadius=120)
+    sat_text = sat_base.mark_text(radius=140, size=20).encode(text="len:N")
+    sat_pie + sat_text
+
+    return sat, sat_base, sat_pie, sat_text
+
+
+@app.cell
+def __(mo):
+    mo.md("""> (If not) What enhancements would you like to make?""")
     return
 
 
 @app.cell
-def __(alt, df, pl):
-    _chart = (
-        alt.Chart(df.filter(pl.col("b2.q11").is_not_null()))
-        .transform_aggregate(count="count()", groupby=["b2\.q11"])
-        .transform_window(
-            rank="rank()",
-            sort=[
-                alt.SortField("count", order="descending"),
-                alt.SortField("b2\.q11", order="ascending"),
-            ],
-        )
-        .transform_filter(alt.datum.rank <= 10)
-        .mark_bar()
-        .encode(
-            y=alt.Y("b2\.q11", type="nominal", sort="-x"),
-            x=alt.X("count", type="quantitative"),
-        )
-        .properties(title="Why?", width="container")
-    )
-    _chart
+def __(df, pl):
+    df.filter(pl.col("b2.q11").is_not_null()).select(pl.col("b2.q11"))
+    return
+
+
+@app.cell
+def __(mo):
+    mo.md("""### Are you planning to document questionnaires using DDI?""")
     return
 
 
@@ -468,7 +567,7 @@ def __(alt, df, pl):
             x=alt.X("count()", type="quantitative"),
         )
         .properties(
-            title="Are you planning to document your questionnaires in DDI?", 
+            title="Plans", 
             width="container"
         )
     )
@@ -510,8 +609,19 @@ def __(df, list_to_md, pl):
         pl.col("b3.q3")
     ).filter(pl.col("b3.q3").is_not_null()).to_series()
 
-    list_to_md(qddiimprov, "DDI improvements for questionnaire")
+    list_to_md(qddiimprov, "What improvements to DDI for questionnaires that you would like to see?")
     return (qddiimprov,)
+
+
+@app.cell
+def __(mo):
+    mo.md(
+        """
+        ## DDI training and resources
+        ### Have you ever taken part in a DDI training course, workshop or seminar?
+        """
+    )
+    return
 
 
 @app.cell
@@ -526,7 +636,7 @@ def __(df, mo, pl):
 def __(df, list_to_md, pl):
     list_to_md(
         df.select("b4.q2").filter(pl.col("b4.q2").is_not_null()).to_series(),
-        "What training?"
+        "Which one?"
     )
     return
 
@@ -547,50 +657,52 @@ def __(alt, df, pl):
 
 
 @app.cell
-def __(alt, df, pl):
-    _chart = (
-        alt.Chart(df.filter(pl.col("b4.q4").is_not_null()))
-        .transform_aggregate(count="count()", groupby=["b4\.q4"])
-        .transform_window(
-            rank="rank()",
-            sort=[
-                alt.SortField("count", order="descending"),
-                alt.SortField("b4\.q4", order="ascending"),
-            ],
-        )
-        .transform_filter(alt.datum.rank <= 10)
-        .mark_bar()
-        .encode(
-            y=alt.Y("b4\.q4", type="nominal", sort="-x"),
-            x=alt.X("count", type="quantitative"),
-        )
-        .properties(title="Top 10 b4\.q4", width="container")
-    )
-    _chart
+def __(mo):
+    mo.md("""### What resources do you usually use to help you in your questionnaire conception and documentation activities?""")
     return
 
 
 @app.cell
-def __(alt, df, pl):
-    _chart = (
-        alt.Chart(df.filter(pl.col("b4.q5").is_not_null()))
-        .transform_aggregate(count="count()", groupby=["b4\.q5"])
-        .transform_window(
-            rank="rank()",
-            sort=[
-                alt.SortField("count", order="descending"),
-                alt.SortField("b4\.q5", order="ascending"),
-            ],
-        )
-        .transform_filter(alt.datum.rank <= 10)
-        .mark_bar()
-        .encode(
-            y=alt.Y("b4\.q5", type="nominal", sort="-x"),
-            x=alt.X("count", type="quantitative"),
-        )
-        .properties(title="Top 10 b4\.q5", width="container")
-    )
-    _chart
+def __(df, mark, pl):
+    df.filter(
+        pl.col("b4.q4").is_not_null()
+    ).select(
+        pl.col("b4.q4"),
+        mark("b4.q4", "DDI website"),
+        mark("b4.q4", "Specification"),
+        mark("b4.q4", "Model documentation"),
+        mark("b4.q4", "Codata"),
+        mark("b4.q4", "Zenodo"),
+        mark("b4.q4", "Youtube"),
+        mark("b4.q4", "Other")
+    ).unpivot(
+        ["DDI website", "Specification", "Model documentation", "Codata", "Zenodo", "Youtube", "Other"]
+    ).group_by(
+        "variable"
+    ).agg(
+        pl.col("value").sum()
+    ).sort("value", descending=True)
+    return
+
+
+@app.cell
+def __(df, mark, pl):
+    df.filter(
+        pl.col("b4.q5").is_not_null()
+    ).select(
+        pl.col("b4.q5"),
+        mark("b4.q5", "Best practices"),
+        mark("b4.q5", "Mentoring"),
+        mark("b4.q5", "Webinar"),
+        mark("b4.q5", "In person training"),
+        mark("b4.q5", "Other")
+    ).unpivot(
+        ["Best practices", "Mentoring", "Webinar", "In person training", "Other"]
+    ).group_by(
+        "variable"
+    ).agg(
+        pl.col("value").sum()
+    ).sort("value", descending=True)
     return
 
 
